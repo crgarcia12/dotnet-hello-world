@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "cargarakscluster1-c21b"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "cargarakscluster1-c21b"
+  template:
+    metadata:
+      labels:
+        app: "cargarakscluster1-c21b"
+    spec:
+      containers:
+        - name: "cargarakscluster1-c21b"
+          image: "crgarakspublicacr.azurecr.io/cargarakscluster1"
+          ports:
+          - containerPort: 80
