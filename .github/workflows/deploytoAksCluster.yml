@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: crgarakspublicacr.azurecr.io
+        username: ${{ secrets.acr_crgarakspublicacr_username }}
+        password: ${{ secrets.acr_crgarakspublicacr_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/Hola" -f  "Hola/Hola/Dockerfile" -t crgarakspublicacr.azurecr.io/cargarakscluster1:${{ github.sha }} --label dockerfile-path=Hola/Hola/Dockerfile
+        docker push crgarakspublicacr.azurecr.io/cargarakscluster1:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_cargarakscluster1_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep hola-namespace | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace hola-namespace`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: hola-namespace
+        container-registry-url: crgarakspublicacr.azurecr.io
+        container-registry-username: ${{ secrets.acr_crgarakspublicacr_username }}
+        container-registry-password: ${{ secrets.acr_crgarakspublicacr_password }}
+        secret-name: cargarakscludockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: hola-namespace
+        manifests: |
+          manifests/deployment.yml
+          manifests/service.yml
+        images: |
+          crgarakspublicacr.azurecr.io/cargarakscluster1:${{ github.sha }}
+        imagepullsecrets: |
+          cargarakscludockerauth
